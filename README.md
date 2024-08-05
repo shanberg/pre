@@ -16,6 +16,8 @@ You'll be asked for a project name, and whether to use the current folder or cre
 
 `pre` will copy the selected template to the target directory and replace placeholders with the provided project name.
 
+`pre` will replace the string {{PROJECT_NAME}} anywhere in the files in the template with the project name provided.
+
 ## Templates
 
 The templates are stored in versioned directories under `/templates`.
