@@ -1,0 +1,8 @@
+{
+    "toggleexcludedfiles.files": ["links.md", "projects.md"],
+    "workbench.editorAssociations": {"*.md": "vscode.markdown.preview.editor"},
+    "workbench.editor.openPositioning": "right",
+    "workbench.editor.closeEmptyGroups": false,
+    "workbench.editor.splitSizing": "split",
+    "workbench.panel.defaultLocation": "right"
+}
