@@ -5,7 +5,7 @@
 ## Installation
 
 ```bash
-"curl -fsSL https://raw.githubusercontent.com/shanberg/pre/main/install.sh | sh"
+curl -fsSL https://raw.githubusercontent.com/shanberg/pre/main/install.sh | sh
 ```
 
 ## Usage
