@@ -1,8 +1,11 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 CONFIG_FILE="$HOME/.pre_config"
 DEFAULT_GITHUB_URL="https://github.com/shanberg/pre-templates"
 DEFAULT_LOCAL_DIR="$HOME/.pre_project-templates"
+BIN_DIR="$HOME/bin"
+SCRIPT_NAME="pre"
+SCRIPT_PATH="$BIN_DIR/$SCRIPT_NAME"
 
 # Function to prompt for GitHub repository setup
 setup_github_repo() {
@@ -14,11 +17,28 @@ setup_github_repo() {
         exit 1
     fi
 
+    if [[ -d "$DEFAULT_LOCAL_DIR" && "$(ls -A $DEFAULT_LOCAL_DIR)" ]]; then
+        read -p "Directory $DEFAULT_LOCAL_DIR already exists and is not empty. Remove it and continue? (y/n): " remove_dir
+        if [[ "$remove_dir" == "y" ]]; then
+            rm -rf "$DEFAULT_LOCAL_DIR"
+            if [[ $? -ne 0 ]]; then
+                echo "Failed to remove existing directory: $DEFAULT_LOCAL_DIR"
+                exit 1
+            fi
+        else
+            echo "Aborting installation."
+            exit 1
+        fi
+    fi
+
     git clone "$github_url" "$DEFAULT_LOCAL_DIR"
     if [[ $? -ne 0 ]]; then
         echo "Failed to clone repository. Please check the URL and try again."
         exit 1
     fi
+
+    echo "Cloning completed. Contents of $DEFAULT_LOCAL_DIR:"
+    ls -la "$DEFAULT_LOCAL_DIR"
 
     echo "TEMPLATE_FOLDER=\"$DEFAULT_LOCAL_DIR\"" > "$CONFIG_FILE"
     echo "Templates will be sourced from: $DEFAULT_LOCAL_DIR"
@@ -47,8 +67,32 @@ setup_local_dir() {
     echo "Templates will be sourced from: $local_dir"
 }
 
+# Function to install the main script
+install_main_script() {
+    if [[ ! -d "$BIN_DIR" ]]; then
+        mkdir -p "$BIN_DIR"
+    fi
+
+    if [[ ! -f "pre.sh" ]]; then
+        echo "pre.sh script not found. Please ensure it is in the same directory as install.sh."
+        exit 1
+    fi
+
+    cp pre.sh "$SCRIPT_PATH"
+    chmod +x "$SCRIPT_PATH"
+    echo "Main script installed to: $SCRIPT_PATH"
+
+    # Add BIN_DIR to PATH if not already present
+    if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
+        echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.bashrc"
+        echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.zshrc"
+        source "$HOME/.bashrc" 2>/dev/null
+        source "$HOME/.zshrc" 2>/dev/null
+        echo "Added $BIN_DIR to PATH"
+    fi
+}
+
 # Main installer logic
-echo "Welcome to the Project Templating System installer."
 echo "How would you like to manage your templates?"
 echo "1) Use templates from a GitHub repository (recommended)"
 echo "2) Use a local directory for templates"
@@ -66,6 +110,8 @@ case $choice in
         exit 1
         ;;
 esac
+
+install_main_script
 
 echo "Configuration complete!"
 echo "You can change the template source later by editing $CONFIG_FILE"

@@ -1,7 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 CONFIG_FILE="$HOME/.pre_config"
-DEFAULT_LOCAL_DIR="$HOME/.pre_project"
+DEFAULT_LOCAL_DIR="$HOME/.pre_project-templates"
+BIN_DIR="$HOME/bin"
+SCRIPT_NAME="pre"
+SCRIPT_PATH="$BIN_DIR/$SCRIPT_NAME"
 
 # Function to remove the configuration file
 remove_config_file() {
@@ -38,24 +41,23 @@ remove_template_directory() {
 
 # Function to remove the main script from PATH
 remove_main_script() {
-    MAIN_SCRIPT="$HOME/bin/pre"
-    if [[ -f "$MAIN_SCRIPT" ]]; then
-        rm "$MAIN_SCRIPT"
+    if [[ -f "$SCRIPT_PATH" ]]; then
+        rm "$SCRIPT_PATH"
         if [[ $? -ne 0 ]]; then
-            echo "Failed to remove main script: $MAIN_SCRIPT"
+            echo "Failed to remove main script: $SCRIPT_PATH"
             exit 1
         fi
-        echo "Main script removed: $MAIN_SCRIPT"
+        echo "Main script removed: $SCRIPT_PATH"
     else
-        echo "Main script not found: $MAIN_SCRIPT"
+        echo "Main script not found: $SCRIPT_PATH"
     fi
 }
 
 # Main uninstaller logic
-echo "Uninstalling the pre..."
+echo "Uninstalling the Project Templating System..."
 
 remove_config_file
 remove_template_directory
 remove_main_script
 
-echo "Uninstallation complete"
+echo "Uninstallation complete!"
