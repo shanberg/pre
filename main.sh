@@ -1,55 +1,81 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Function to replace placeholders in files
-replace_placeholders() {
-    local file="$1"
-    local project_name="$2"
-    sed -i "s/{{PROJECT_NAME}}/$project_name/g" "$file"
-}
-
-# Prompt for project name
-echo "Please provide a project name:"
-read -r PROJECT_NAME
-
-# Prompt for directory choice using select
-echo "Do you want to use the current directory?"
-select USE_CURRENT_DIR in "Yes" "No"; do
-    case $USE_CURRENT_DIR in
-        Yes ) USE_CURRENT_DIR="y"; break;;
-        No ) USE_CURRENT_DIR="n"; break;;
-    esac
-done
-
-# Create project directory if not using current directory
-if [[ "$USE_CURRENT_DIR" != "y" && "$USE_CURRENT_DIR" != "Y" ]]; then
-    mkdir -p "$PROJECT_NAME"
-    TARGET_DIR="$PROJECT_NAME"
+# Load configuration
+CONFIG_FILE="$HOME/.pre_config"
+if [[ -f "$CONFIG_FILE" ]]; then
+    source "$CONFIG_FILE"
 else
-    TARGET_DIR="."
-fi
-
-# List available template versions
-echo "Available template versions:"
-TEMPLATE_VERSIONS=($(ls /usr/local/share/project_templates))
-select TEMPLATE_VERSION in "${TEMPLATE_VERSIONS[@]}"; do
-    if [[ -n "$TEMPLATE_VERSION" ]]; then
-        break
-    else
-        echo "Invalid selection. Please try again."
-    fi
-done
-
-# Validate template version
-TEMPLATE_DIR="/usr/local/share/project_templates/$TEMPLATE_VERSION"
-if [[ ! -d "$TEMPLATE_DIR" ]]; then
-    echo "Invalid template version selected."
+    echo "Configuration file not found at $CONFIG_FILE"
     exit 1
 fi
 
-# Copy template directory to target directory
-cp -r "$TEMPLATE_DIR"/* "$TARGET_DIR"
+# Check if template folder exists
+if [[ ! -d "$TEMPLATE_FOLDER" ]]; then
+    echo "Template folder not found at $TEMPLATE_FOLDER"
+    exit 1
+fi
 
-# Replace placeholders in copied files
-find "$TARGET_DIR" -type f -exec bash -c 'replace_placeholders "$0" "$1"' {} "$PROJECT_NAME" \;
+# List available templates
+list_templates() {
+    echo "Available templates:"
+    local index=1
+    for template in "$TEMPLATE_FOLDER"/*; 
+    do
+        if [[ -d "$template" ]]; then
+            echo "$index) $(basename "$template")"
+            index=$((index + 1))
+        fi
+    done
+}
 
-echo "Project setup complete."
+# Select template interactively
+select_template() {
+    list_templates
+    echo -n "Select a template: "
+    read -r template_index
+    local selected_template=$(ls -d "$TEMPLATE_FOLDER"/* | sed -n "${template_index}p")
+    if [[ -z "$selected_template" ]]; then
+        echo "Invalid selection"
+        exit 1
+    fi
+    echo "$selected_template"
+}
+
+# Initialize project
+initialize_project() {
+    local template_path="$1"
+    echo -n "Enter project name: "
+    read -r project_name
+    local project_path="$PWD/$project_name"
+    if [[ -d "$project_path" ]]; then
+        echo "Project directory already exists"
+        exit 1
+    fi
+    cp -r "$template_path" "$project_path"
+    echo "Creating project '$project_name' using '$(basename "$template_path")' template..."
+    echo "Done!"
+}
+
+# Update template folder location
+update_template_folder() {
+    echo -n "Enter new template folder path: "
+    read -r new_template_folder
+    if [[ ! -d "$new_template_folder" ]]; then
+        echo "Directory does not exist: $new_template_folder"
+        exit 1
+    fi
+    echo "TEMPLATE_FOLDER=\"$new_template_folder\"" > "$CONFIG_FILE"
+    echo "Template folder location updated to $new_template_folder"
+}
+
+# Main script logic
+main() {
+    if [[ "$1" == "--update-template-folder" ]]; then
+        update_template_folder
+    else
+        local template_path=$(select_template)
+        initialize_project "$template_path"
+    fi
+}
+
+main "$@"
