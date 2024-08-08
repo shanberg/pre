@@ -63,6 +63,18 @@ initialize_project() {
     mkdir -p "$project_path"
     cp -r "$template_path"/* "$project_path"
     echo "Project initialized at $project_path"
+
+    # Replace {{PROJECT_NAME}} in folder and file names
+    find "$project_path" -depth -name '*{{PROJECT_NAME}}*' | while IFS= read -r path; do
+        # Ensure the path starts with the project_path
+        if [[ "$path" == "$project_path"* ]]; then
+            new_path=$(echo "$path" | sed "s/{{PROJECT_NAME}}/$project_name/g")
+            mv "$path" "$new_path"
+        fi
+    done
+
+    # Replace {{PROJECT_NAME}} in file contents
+    find "$project_path" -type f -exec sed -i "s/{{PROJECT_NAME}}/$project_name/g" {} +
 }
 
 # Main script logic
