@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e  # Exit immediately if a command exits with a non-zero status.
+set -euo pipefail  # Exit immediately if a command exits with a non-zero status.
 
 # Load configuration
 CONFIG_FILE="$HOME/.pre_config"
@@ -18,78 +18,61 @@ fi
 
 # List available templates
 list_templates() {
-    echo "Available templates:"
-    local index=1
+    local templates=()
     for template in "$TEMPLATE_FOLDER"/*; do
         if [[ -d "$template" && ! "$(basename "$template")" =~ ^\..* ]]; then
-            echo "$index) $(basename "$template")"
-            ((index++))
+            templates+=("$template")
         fi
+    done
+    printf "%s\n" "${templates[@]}"
+}
+
+# Display template options
+display_templates() {
+    local templates=("$@")
+    echo "Available templates:"
+    for ((i=0; i<${#templates[@]}; i++)); do
+        echo "$((i+1))) $(basename "${templates[i]}")"
     done
 }
 
 # Select template interactively
 select_template() {
-    list_templates
-    local templates=()
-    while IFS= read -r -d '' dir; do
-        if [[ ! "$(basename "$dir")" =~ ^\..* ]]; then
-            templates+=("$dir")
-        fi
-    done < <(find "$TEMPLATE_FOLDER" -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
-
+    local templates=("$@")
+    local selected_index=""
     while true; do
-        echo -n "Select a template (1-${#templates[@]}): "
-        read -r template_index
-        if [[ "$template_index" =~ ^[0-9]+$ ]] && ((template_index >= 1 && template_index <= ${#templates[@]})); then
-            selected_template="${templates[template_index-1]}"
-            echo "Selected template path: $selected_template"
-            echo "$selected_template"
-            return
+        read -r -p "Select a template (1-${#templates[@]}): " selected_index
+        if [[ -z "$selected_index" ]]; then
+            echo "Input cannot be empty. Please try again."
+        elif [[ "$selected_index" =~ ^[0-9]+$ ]] && ((selected_index >= 1 && selected_index <= ${#templates[@]})); then
+            break
         else
             echo "Invalid selection. Please try again."
         fi
     done
+
+    echo "$selected_index"
 }
 
 # Initialize project
 initialize_project() {
     local template_path="$1"
     local project_name
-    while true; do
-        echo -n "Enter project name: "
-        read -r project_name
-        if [[ -n "$project_name" ]]; then
-            break
-        else
-            echo "Project name cannot be empty. Please try again."
-        fi
-    done
-
+    read -r -p "Enter project name: " project_name
     local project_path="$PWD/$project_name"
-    if [[ -d "$project_path" ]]; then
-        echo "Project directory already exists"
-        exit 1
-    fi
-
-    echo "Creating project '$project_name' using '$(basename "$template_path")' template..."
     mkdir -p "$project_path"
-    echo "Debug: Copying from $template_path to $project_path"
-    if ! cp -r "$template_path"/* "$project_path" 2>/dev/null; then
-        echo "Error: Failed to copy template files. Please check permissions and try again."
-        ls -la "$template_path"
-        ls -la "$project_path"
-        rm -rf "$project_path"
-        exit 1
-    fi
-    echo "Done!"
+    cp -r "$template_path"/* "$project_path"
+    echo "Project initialized at $project_path"
 }
 
 # Main script logic
 main() {
-    local template_path
-    template_path=$(select_template)
-    echo "Debug: Selected template path is $template_path"
+    local templates=()
+    readarray -t templates < <(list_templates)
+    display_templates "${templates[@]}"
+    local selected_index
+    selected_index=$(select_template "${templates[@]}")
+    local template_path="${templates[$((selected_index - 1))]}"
     initialize_project "$template_path"
 }
 
