@@ -8,6 +8,24 @@ SCRIPT_NAME="pre"
 SCRIPT_PATH="$BIN_DIR/$SCRIPT_NAME"
 BUNDLE_URL="https://raw.githubusercontent.com/shanberg/pre/main/dist/pre.tar.gz"
 
+# Default values for non-interactive mode
+NON_INTERACTIVE=false
+TEMPLATE_SOURCE="github"
+GITHUB_URL="$DEFAULT_GITHUB_URL"
+LOCAL_DIR="$DEFAULT_LOCAL_DIR"
+
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --non-interactive) NON_INTERACTIVE=true ;;
+        --template-source) TEMPLATE_SOURCE="$2"; shift ;;
+        --github-url) GITHUB_URL="$2"; shift ;;
+        --local-dir) LOCAL_DIR="$2"; shift ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
 # Function to download and extract the bundle
 download_and_extract_bundle() {
     TEMP_DIR=$(mktemp -d)
@@ -31,31 +49,36 @@ download_and_extract_bundle() {
     echo "$TEMP_DIR"
 }
 
-# Function to prompt for GitHub repository setup
+# Function to setup GitHub repository
 setup_github_repo() {
-    read -p "Enter the GitHub repository URL for the templates [default: $DEFAULT_GITHUB_URL]: " github_url
-    github_url=${github_url:-$DEFAULT_GITHUB_URL}
-
     if ! command -v git &> /dev/null; then
         echo "Git is not installed. Please install Git and try again."
         exit 1
     fi
 
     if [[ -d "$DEFAULT_LOCAL_DIR" && "$(ls -A $DEFAULT_LOCAL_DIR)" ]]; then
-        read -p "Directory $DEFAULT_LOCAL_DIR already exists and is not empty. Remove it and continue? (y/n): " remove_dir
-        if [[ "$remove_dir" == "y" ]]; then
+        if $NON_INTERACTIVE; then
             rm -rf "$DEFAULT_LOCAL_DIR"
             if [[ $? -ne 0 ]]; then
                 echo "Failed to remove existing directory: $DEFAULT_LOCAL_DIR"
                 exit 1
             fi
         else
-            echo "Aborting installation."
-            exit 1
+            read -p "Directory $DEFAULT_LOCAL_DIR already exists and is not empty. Remove it and continue? (y/n): " remove_dir
+            if [[ "$remove_dir" == "y" ]]; then
+                rm -rf "$DEFAULT_LOCAL_DIR"
+                if [[ $? -ne 0 ]]; then
+                    echo "Failed to remove existing directory: $DEFAULT_LOCAL_DIR"
+                    exit 1
+                fi
+            else
+                echo "Aborting installation."
+                exit 1
+            fi
         fi
     fi
 
-    git clone "$github_url" "$DEFAULT_LOCAL_DIR"
+    git clone "$GITHUB_URL" "$DEFAULT_LOCAL_DIR"
     if [[ $? -ne 0 ]]; then
         echo "Failed to clone repository. Please check the URL and try again."
         exit 1
@@ -68,27 +91,32 @@ setup_github_repo() {
     echo "Templates will be sourced from: $DEFAULT_LOCAL_DIR"
 }
 
-# Function to prompt for local directory setup
+# Function to setup local directory
 setup_local_dir() {
-    read -p "Please enter the full path to your local templates directory [default: $DEFAULT_LOCAL_DIR]: " local_dir
-    local_dir=${local_dir:-$DEFAULT_LOCAL_DIR}
-
-    if [[ ! -d "$local_dir" ]]; then
-        read -p "Directory does not exist. Create it? (y/n): " create_dir
-        if [[ "$create_dir" == "y" ]]; then
-            mkdir -p "$local_dir"
+    if [[ ! -d "$LOCAL_DIR" ]]; then
+        if $NON_INTERACTIVE; then
+            mkdir -p "$LOCAL_DIR"
             if [[ $? -ne 0 ]]; then
                 echo "Failed to create directory. Please check the path and try again."
                 exit 1
             fi
         else
-            echo "Directory setup aborted."
-            exit 1
+            read -p "Directory does not exist. Create it? (y/n): " create_dir
+            if [[ "$create_dir" == "y" ]]; then
+                mkdir -p "$LOCAL_DIR"
+                if [[ $? -ne 0 ]]; then
+                    echo "Failed to create directory. Please check the path and try again."
+                    exit 1
+                fi
+            else
+                echo "Directory setup aborted."
+                exit 1
+            fi
         fi
     fi
 
-    echo "TEMPLATE_FOLDER=\"$local_dir\"" > "$CONFIG_FILE"
-    echo "Templates will be sourced from: $local_dir"
+    echo "TEMPLATE_FOLDER=\"$LOCAL_DIR\"" > "$CONFIG_FILE"
+    echo "Templates will be sourced from: $LOCAL_DIR"
 }
 
 # Function to install the main script
@@ -120,25 +148,37 @@ install_main_script() {
 echo "Downloading and preparing the bundle..."
 BUNDLE_DIR=$(download_and_extract_bundle)
 
-echo "How would you like to manage your templates?"
-echo "1) Use templates from a GitHub repository (recommended)"
-echo "2) Use a local directory for templates"
-read -p "Enter your choice (1/2): " choice
-
-case $choice in
-    1)
+if $NON_INTERACTIVE; then
+    if [[ "$TEMPLATE_SOURCE" == "github" ]]; then
         setup_github_repo
-        ;;
-    2)
+    elif [[ "$TEMPLATE_SOURCE" == "local" ]]; then
         setup_local_dir
-        ;;
-    *)
-        echo "Invalid choice. Please run the installer again and select a valid option."
+    else
+        echo "Invalid template source specified. Use 'github' or 'local'."
         exit 1
-        ;;
-esac
+    fi
+else
+    echo "How would you like to manage your templates?"
+    echo "1) Use templates from a GitHub repository (recommended)"
+    echo "2) Use a local directory for templates"
+    read -p "Enter your choice (1/2): " choice
+
+    case $choice in
+        1)
+            setup_github_repo
+            ;;
+        2)
+            setup_local_dir
+            ;;
+        *)
+            echo "Invalid choice. Please run the installer again and select a valid option."
+            exit 1
+            ;;
+    esac
+fi
 
 install_main_script
 
 echo "Configuration complete!"
+
 echo "You can change the template source later by editing $CONFIG_FILE"
