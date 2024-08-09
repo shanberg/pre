@@ -1,6 +1,6 @@
 # `pre`
 
-`pre` is a simmple project templating program. Run `pre` to
+`pre` is a simple project templating program.
 
 ## Installing
 
