@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 CONFIG_FILE="$HOME/.pre_config"
 DEFAULT_GITHUB_URL="https://github.com/shanberg/pre-templates"
