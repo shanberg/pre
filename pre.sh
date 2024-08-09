@@ -16,6 +16,26 @@ if [[ ! -d "$TEMPLATE_FOLDER" ]]; then
     exit 1
 fi
 
+# Function to check for updates
+check_for_updates() {
+    cd "$TEMPLATE_FOLDER" || exit 1
+    git fetch origin
+    local local_commit=$(git rev-parse HEAD)
+    local remote_commit=$(git rev-parse origin/main)
+    if [[ "$local_commit" != "$remote_commit" ]]; then
+        echo "Updates are available for the templates."
+        read -r -p "Would you like to update now? (y/n): " update_choice
+        if [[ "$update_choice" == "y" ]]; then
+            git pull origin main
+            if [[ $? -ne 0 ]]; then
+                echo "Failed to update templates from GitHub."
+                exit 1
+            fi
+            echo "Templates updated successfully."
+        fi
+    fi
+}
+
 # List available templates
 list_templates() {
     local templates=()
@@ -79,6 +99,7 @@ initialize_project() {
 
 # Main script logic
 main() {
+    check_for_updates
     local templates=()
     readarray -t templates < <(list_templates)
     display_templates "${templates[@]}"
