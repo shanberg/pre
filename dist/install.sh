@@ -6,6 +6,30 @@ DEFAULT_LOCAL_DIR="$HOME/.pre_project-templates"
 BIN_DIR="$HOME/bin"
 SCRIPT_NAME="pre"
 SCRIPT_PATH="$BIN_DIR/$SCRIPT_NAME"
+BUNDLE_URL="https://raw.githubusercontent.com/shanberg/pre/main/dist/pre.tar.gz"
+
+# Function to download and extract the bundle
+download_and_extract_bundle() {
+    TEMP_DIR=$(mktemp -d)
+    BUNDLE_PATH="$TEMP_DIR/pre.tar.gz"
+
+    echo "Downloading bundle from $BUNDLE_URL..."
+    curl -L "$BUNDLE_URL" -o "$BUNDLE_PATH"
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to download the bundle. Please check the URL and try again."
+        exit 1
+    fi
+
+    echo "Extracting bundle..."
+    tar -xzvf "$BUNDLE_PATH" -C "$TEMP_DIR"
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to extract the bundle."
+        exit 1
+    fi
+
+    echo "Bundle extracted to $TEMP_DIR"
+    echo "$TEMP_DIR"
+}
 
 # Function to prompt for GitHub repository setup
 setup_github_repo() {
@@ -73,12 +97,12 @@ install_main_script() {
         mkdir -p "$BIN_DIR"
     fi
 
-    if [[ ! -f "pre.sh" ]]; then
-        echo "pre.sh script not found. Please ensure it is in the same directory as install.sh."
+    if [[ ! -f "$BUNDLE_DIR/bin/pre.sh" ]]; then
+        echo "pre.sh script not found in the bundle. Please ensure it is included in the bundle."
         exit 1
     fi
 
-    cp pre.sh "$SCRIPT_PATH"
+    cp "$BUNDLE_DIR/bin/pre.sh" "$SCRIPT_PATH"
     chmod +x "$SCRIPT_PATH"
     echo "Main script installed to: $SCRIPT_PATH"
 
@@ -93,6 +117,9 @@ install_main_script() {
 }
 
 # Main installer logic
+echo "Downloading and preparing the bundle..."
+BUNDLE_DIR=$(download_and_extract_bundle)
+
 echo "How would you like to manage your templates?"
 echo "1) Use templates from a GitHub repository (recommended)"
 echo "2) Use a local directory for templates"
