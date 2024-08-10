@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 CONFIG_FILE="$HOME/.pre_config"
 DEFAULT_GITHUB_URL="https://github.com/shanberg/pre-templates"
@@ -14,6 +15,9 @@ TEMPLATE_SOURCE="github"
 GITHUB_URL="$DEFAULT_GITHUB_URL"
 LOCAL_DIR="$DEFAULT_LOCAL_DIR"
 
+# Ensure common directories are in PATH
+export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/git/bin
+
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -26,27 +30,27 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Associative array to store intermediate data
+declare -A DATA
+
 # Function to download and extract the bundle
 download_and_extract_bundle() {
     TEMP_DIR=$(mktemp -d)
     BUNDLE_PATH="$TEMP_DIR/pre.tar.gz"
 
-    echo "Downloading bundle from $BUNDLE_URL..."
     curl -L "$BUNDLE_URL" -o "$BUNDLE_PATH"
     if [[ $? -ne 0 ]]; then
         echo "Failed to download the bundle. Please check the URL and try again."
         exit 1
     fi
 
-    echo "Extracting bundle..."
     tar -xzvf "$BUNDLE_PATH" -C "$TEMP_DIR"
     if [[ $? -ne 0 ]]; then
         echo "Failed to extract the bundle."
         exit 1
     fi
 
-    echo "Bundle extracted to $TEMP_DIR"
-    echo "$TEMP_DIR"
+    DATA[BUNDLE_DIR]="$TEMP_DIR"
 }
 
 # Function to setup GitHub repository
@@ -125,12 +129,16 @@ install_main_script() {
         mkdir -p "$BIN_DIR"
     fi
 
-    if [[ ! -f "$BUNDLE_DIR/bin/pre.sh" ]]; then
+    local bundle_dir="${DATA[BUNDLE_DIR]}"
+    echo "Looking for pre.sh in $bundle_dir/bin"
+    if [[ ! -f "$bundle_dir/bin/pre.sh" ]]; then
         echo "pre.sh script not found in the bundle. Please ensure it is included in the bundle."
+        echo "Contents of $bundle_dir/bin:"
+        ls -la "$bundle_dir/bin"
         exit 1
     fi
 
-    cp "$BUNDLE_DIR/bin/pre.sh" "$SCRIPT_PATH"
+    cp "$bundle_dir/bin/pre.sh" "$SCRIPT_PATH"
     chmod +x "$SCRIPT_PATH"
     echo "Main script installed to: $SCRIPT_PATH"
 
@@ -138,15 +146,23 @@ install_main_script() {
     if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
         echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.bashrc"
         echo 'export PATH="$HOME/bin:$PATH"' >> "$HOME/.zshrc"
-        source "$HOME/.bashrc" 2>/dev/null
-        source "$HOME/.zshrc" 2>/dev/null
         echo "Added $BIN_DIR to PATH"
+
+        # Source the relevant shell configuration file
+        if [[ "$SHELL" == *"zsh"* ]]; then
+            source "$HOME/.zshrc"
+        elif [[ "$SHELL" == *"bash"* ]]; then
+            source "$HOME/.bashrc"
+        fi
     fi
 }
 
 # Main installer logic
 echo "Downloading and preparing the bundle..."
-BUNDLE_DIR=$(download_and_extract_bundle)
+download_and_extract_bundle
+
+# Ensure BUNDLE_DIR is correctly set
+echo "BUNDLE_DIR is set to: ${DATA[BUNDLE_DIR]}"
 
 if $NON_INTERACTIVE; then
     if [[ "$TEMPLATE_SOURCE" == "github" ]]; then
@@ -180,5 +196,4 @@ fi
 install_main_script
 
 echo "Configuration complete!"
-
 echo "You can change the template source later by editing $CONFIG_FILE"
